@@ -1,6 +1,6 @@
-const { app, BrowserWindow, ipcMain, Notification } = require('electron');
-const path = require('path');
-const Store = require('electron-store');
+const { app, BrowserWindow, ipcMain, Notification } = require("electron");
+const path = require("path");
+const Store = require("electron-store");
 
 const store = new Store();
 let mainWindow;
@@ -18,7 +18,7 @@ function createWindow() {
         transparent: true,
         resizable: true,
         skipTaskbar: true,
-        type: 'desktop', // This makes it behave like a desktop widget
+        type: "desktop", // This makes it behave like a desktop widget
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
@@ -26,16 +26,16 @@ function createWindow() {
         }
     });
 
-    mainWindow.loadFile('index.html');
+    mainWindow.loadFile("index.html");
     // Try to set always on bottom, fallback to always on top if not available
-    mainWindow.setAlwaysOnTop(true, 'normal'); // Keep it below all windows but above desktop
+    mainWindow.setAlwaysOnTop(true, "normal"); // Keep it below all windows but above desktop
 
     // Make window stick to desktop on KDE Plasma
-    if (process.platform === 'linux') {
+    if (process.platform === "linux") {
         mainWindow.webContents.executeJavaScript(`
-            const { exec } = require('child_process');
-            exec('xdotool search --name "Shinigami Companion" windowtype --add desktop', (err) => {
-                if (err) console.error('Could not set window type:', err);
+            const { exec } = require("child_process");
+            exec("xdotool search --name \"Shinigami Companion\" windowtype --add desktop", (err) => {
+                if (err) console.error("Could not set window type:", err);
             });
         `);
     }
@@ -57,17 +57,17 @@ function scheduleNextQuestion() {
 function sendPeriodicQuestion() {
     const questions = [
         "What are you working on right now?",
-        "How's your energy level? Need a break?",
+        "How\"s your energy level? Need a break?",
         "Anything interesting happen today?",
-        "What's on your mind?",
+        "What\"s on your mind?",
         "Discovered anything cool lately?",
-        "How's the flow state?",
+        "How\"s the flow state?",
         "Need me to look something up for you?",
         "Time for coffee... or something stronger?",
         "What rabbit hole are you diving into?",
         "Still breathing? Just checking.",
         "Any demons to debug?",
-        "What's the vibe right now?",
+        "What\"s the vibe right now?",
         "Feeling stuck on something?",
         "Want to talk through an idea?"
     ];
@@ -76,55 +76,55 @@ function sendPeriodicQuestion() {
     
     // Send notification
     new Notification({
-        title: 'Shinigami Companion',
+        title: "Shinigami Companion",
         body: question,
         silent: false
     }).show();
     
     // Send to renderer process
     if (mainWindow) {
-        mainWindow.webContents.send('periodic-question', question);
+        mainWindow.webContents.send("periodic-question", question);
     }
 }
 
 // IPC Handlers
-ipcMain.on('save-api-key', (event, data) => {
+ipcMain.on("save-api-key", (event, data) => {
     store.set(`apiKeys.${data.provider}`, data.key);
-    event.reply('api-key-saved', { success: true, provider: data.provider });
+    event.reply("api-key-saved", { success: true, provider: data.provider });
 });
 
-ipcMain.on('get-api-keys', (event) => {
+ipcMain.on("get-api-keys", (event) => {
     const keys = {
-        openai: store.get('apiKeys.openai', ''),
-        openrouter: store.get('apiKeys.openrouter', ''),
-        anthropic: store.get('apiKeys.anthropic', '')
+        openai: store.get("apiKeys.openai", ""),
+        openrouter: store.get("apiKeys.openrouter", ""),
+        anthropic: store.get("apiKeys.anthropic", "")
     };
-    event.reply('api-keys-loaded', keys);
+    event.reply("api-keys-loaded", keys);
 });
 
-ipcMain.on('save-chat-history', (event, history) => {
-    store.set('chatHistory', history);
+ipcMain.on("save-chat-history", (event, history) => {
+    store.set("chatHistory", history);
 });
 
-ipcMain.on('load-chat-history', (event) => {
-    const history = store.get('chatHistory', []);
-    event.reply('chat-history-loaded', history);
+ipcMain.on("load-chat-history", (event) => {
+    const history = store.get("chatHistory", []);
+    event.reply("chat-history-loaded", history);
 });
 
-ipcMain.on('clear-chat-history', (event) => {
-    store.set('chatHistory', []);
-    event.reply('chat-history-cleared');
+ipcMain.on("clear-chat-history", (event) => {
+    store.set("chatHistory", []);
+    event.reply("chat-history-cleared");
 });
 
 app.whenReady().then(createWindow);
 
-app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
+app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") {
         app.quit();
     }
 });
 
-app.on('activate', () => {
+app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
         createWindow();
     }

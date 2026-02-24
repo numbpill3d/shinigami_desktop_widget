@@ -1,29 +1,165 @@
-const { ipcRenderer } = require('electron');
-const { remote } = require('electron');
-const https = require('https');
+const { ipcRenderer } = require("electron");
+const { remote } = require("electron");
+const https = require("https");
 
 // State Management
 const state = {
     apiKeys: {
-        openai: '',
-        openrouter: '',
-        anthropic: ''
+        openai: "",
+        openrouter: "",
+        anthropic: ""
     },
-    currentProvider: 'openai',
-    currentModel: 'gpt-4',
-    systemPrompt: '',
+    currentProvider: "openai",
+    currentModel: "gpt-4",
+    systemPrompt: "",
     chatHistory: [],
     isProcessing: false,
     scene: null,
     camera: null,
     renderer: null,
+    composer: null,
     shinigami: null,
     animationFrame: null,
     startTime: Date.now()
 };
 
+const PixelationShader = {
+    uniforms: {
+        "tDiffuse": { value: null },
+        "resolution": { value: new THREE.Vector2() },
+        "pixelSize": { value: 8.0 } // Adjust this value for different pixel sizes
+    },
+
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+        }
+    `,
+
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform vec2 resolution;
+        uniform float pixelSize;
+
+        varying vec2 vUv;
+
+        void main() {
+            vec2 iResolution = resolution;
+            vec2 iFragCoord = vUv * resolution;
+
+            vec2 uv = floor(iFragCoord / pixelSize) * pixelSize / iResolution;
+            gl_FragColor = texture2D(tDiffuse, uv);
+        }
+    `
+};
+
+const ColorQuantizationShader = {
+    uniforms: {
+        "tDiffuse": { value: null },
+        "resolution": { value: new THREE.Vector2() },
+        "paletteSize": { value: 8.0 }, // Number of colors per channel (e.g., 8 for 512 colors total)
+        "ditherMagnitude": { value: 0.0 } // 0.0 for no dither, increase for more
+    },
+
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+        }
+    `,
+
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform vec2 resolution;
+        uniform float paletteSize;
+        uniform float ditherMagnitude;
+
+        varying vec2 vUv;
+
+        // Simple dither function (based on a Bayer matrix for now)
+        float dither(vec2 uv) {
+            vec2 ditherPos = floor(mod(uv * resolution, 2.0));
+            if (ditherPos.x == 0.0 && ditherPos.y == 0.0) return -0.75;
+            if (ditherPos.x == 0.0 && ditherPos.y == 1.0) return 0.25;
+            if (ditherPos.x == 1.0 && ditherPos.y == 0.0) return 0.75;
+            if (ditherPos.x == 1.0 && ditherPos.y == 1.0) return -0.25;
+            return 0.0; // Should not happen with mod 2.0
+        }
+
+        void main() {
+            vec4 color = texture2D(tDiffuse, vUv);
+            
+            // Apply dither
+            float d = dither(vUv) * ditherMagnitude;
+            color.rgb += d;
+
+            // Quantize colors
+            color.rgb = floor(color.rgb * paletteSize) / paletteSize;
+
+            gl_FragColor = color;
+        }
+    `
+};
+
+const CRTShader = {
+    uniforms: {
+        "tDiffuse": { value: null },
+        "resolution": { value: new THREE.Vector2() },
+        "time": { value: 0.0 },
+        "scanlineIntensity": { value: 0.15 },
+        "barrelDistortion": { value: 0.1 }
+    },
+
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+        }
+    `,
+
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform vec2 resolution;
+        uniform float time;
+        uniform float scanlineIntensity;
+        uniform float barrelDistortion;
+
+        varying vec2 vUv;
+
+        // Barrel distortion
+        vec2 barrelDistort(vec2 uv) {
+            vec2 center = vec2(0.5, 0.5);
+            vec2 centeredUv = uv - center;
+            float r2 = centeredUv.x * centeredUv.x + centeredUv.y * centeredUv.y;
+            float f = 1.0 + r2 * barrelDistortion;
+            return centeredUv * f + center;
+        }
+
+        void main() {
+            vec2 distortedUv = barrelDistort(vUv);
+            vec4 color = texture2D(tDiffuse, distortedUv);
+
+            // Add scanlines
+            float scanline = sin(distortedUv.y * resolution.y * 1.5) * 0.5 + 0.5;
+            scanline = pow(scanline, 1.2) * scanlineIntensity;
+            color.rgb -= scanline;
+
+            // Simple vignette
+            vec2 uv = vUv - 0.5;
+            float vignette = smoothstep(0.8, 0.2, dot(uv, uv));
+            color.rgb *= vignette;
+
+            gl_FragColor = color;
+        }
+    `
+};
+
 // Initialize Application
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener("DOMContentLoaded", () => {
     initThreeJS();
     initEventListeners();
     loadSettings();
@@ -37,8 +173,8 @@ window.addEventListener('DOMContentLoaded', () => {
 // ============================================
 
 function initThreeJS() {
-    const canvas = document.getElementById('creature-canvas');
-    const container = document.getElementById('creature-panel');
+    const canvas = document.getElementById("creature-canvas");
+    const container = document.getElementById("creature-panel");
     
     // Scene setup
     state.scene = new THREE.Scene();
@@ -62,6 +198,30 @@ function initThreeJS() {
     });
     state.renderer.setSize(container.offsetWidth, container.offsetHeight);
     state.renderer.setClearColor(0x000000, 0);
+
+    // Post-processing setup
+    state.composer = new EffectComposer(state.renderer);
+    state.composer.addPass(new RenderPass(state.scene, state.camera));
+
+    // Pixelation Pass
+    const pixelationPass = new ShaderPass(PixelationShader);
+    pixelationPass.uniforms["resolution"].value.x = container.offsetWidth;
+    pixelationPass.uniforms["resolution"].value.y = container.offsetHeight;
+    state.composer.addPass(pixelationPass);
+
+    // Color Quantization Pass
+    const quantizationPass = new ShaderPass(ColorQuantizationShader);
+    quantizationPass.uniforms["resolution"].value.x = container.offsetWidth;
+    quantizationPass.uniforms["resolution"].value.y = container.offsetHeight;
+    quantizationPass.uniforms["paletteSize"].value = 8.0; // Example: 8 colors per channel
+    quantizationPass.uniforms["ditherMagnitude"].value = 0.5; // Example: small dither
+    state.composer.addPass(quantizationPass);
+
+    // CRT Pass
+    const crtPass = new ShaderPass(CRTShader);
+    crtPass.uniforms["resolution"].value.x = container.offsetWidth;
+    crtPass.uniforms["resolution"].value.y = container.offsetHeight;
+    state.composer.addPass(crtPass);
     
     // Lighting
     const ambientLight = new THREE.AmbientLight(0x440044, 0.3);
@@ -82,7 +242,7 @@ function initThreeJS() {
     createParticles();
     
     // Handle window resize
-    window.addEventListener('resize', onWindowResize);
+    window.addEventListener("resize", onWindowResize);
 }
 
 function createShinigami() {
@@ -235,7 +395,7 @@ function createShinigami() {
     };
     
     group.traverse((child) => {
-        if (child.isMesh && child.geometry.type === 'SphereGeometry' && 
+        if (child.isMesh && child.geometry.type === "SphereGeometry" && 
             child.material.transparent && child.material.opacity < 0.5) {
             group.userData.wisps.push(child);
         }
@@ -256,7 +416,7 @@ function createParticles() {
         positions[i + 2] = (Math.random() - 0.5) * 20;
     }
     
-    particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    particles.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     
     const particleMaterial = new THREE.PointsMaterial({
         color: 0xff00ff,
@@ -319,15 +479,36 @@ function animate() {
         state.particleSystem.rotation.y = time * 0.05;
         state.particleSystem.rotation.x = time * 0.03;
     }
+
+    // Update CRT time uniform
+    if (state.composer.passes[3] && state.composer.passes[3].uniforms["time"]) {
+        state.composer.passes[3].uniforms["time"].value = time;
+    }
     
-    state.renderer.render(state.scene, state.camera);
+    state.composer.render();
 }
 
 function onWindowResize() {
-    const container = document.getElementById('creature-panel');
+    const container = document.getElementById("creature-panel");
     state.camera.aspect = container.offsetWidth / container.offsetHeight;
     state.camera.updateProjectionMatrix();
     state.renderer.setSize(container.offsetWidth, container.offsetHeight);
+    state.composer.setSize(container.offsetWidth, container.offsetHeight);
+    // Update pixelation resolution
+    if (state.composer.passes[1] && state.composer.passes[1].uniforms["resolution"]) {
+        state.composer.passes[1].uniforms["resolution"].value.x = container.offsetWidth;
+        state.composer.passes[1].uniforms["resolution"].value.y = container.offsetHeight;
+    }
+    // Update color quantization resolution and dither
+    if (state.composer.passes[2] && state.composer.passes[2].uniforms["resolution"]) {
+        state.composer.passes[2].uniforms["resolution"].value.x = container.offsetWidth;
+        state.composer.passes[2].uniforms["resolution"].value.y = container.offsetHeight;
+    }
+    // Update CRT resolution
+    if (state.composer.passes[3] && state.composer.passes[3].uniforms["resolution"]) {
+        state.composer.passes[3].uniforms["resolution"].value.x = container.offsetWidth;
+        state.composer.passes[3].uniforms["resolution"].value.y = container.offsetHeight;
+    }
 }
 
 // ============================================
@@ -336,90 +517,90 @@ function onWindowResize() {
 
 function initEventListeners() {
     // Window controls
-    document.getElementById('settings-btn').addEventListener('click', openSettings);
-    document.getElementById('minimize-btn').addEventListener('click', () => {
+    document.getElementById("settings-btn").addEventListener("click", openSettings);
+    document.getElementById("minimize-btn").addEventListener("click", () => {
         remote.getCurrentWindow().minimize();
     });
-    document.getElementById('close-btn').addEventListener('click', () => {
+    document.getElementById("close-btn").addEventListener("click", () => {
         remote.getCurrentWindow().close();
     });
     
     // Chat input
-    const chatInput = document.getElementById('chat-input');
-    const sendBtn = document.getElementById('send-btn');
+    const chatInput = document.getElementById("chat-input");
+    const sendBtn = document.getElementById("send-btn");
     
-    sendBtn.addEventListener('click', sendMessage);
-    chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
+    sendBtn.addEventListener("click", sendMessage);
+    chatInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             sendMessage();
         }
     });
     
     // Quick actions
-    document.querySelectorAll('.action-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+    document.querySelectorAll(".action-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
             const action = e.target.dataset.action;
             handleQuickAction(action);
         });
     });
     
     // Settings modal
-    document.querySelector('.close-modal').addEventListener('click', closeSettings);
-    document.getElementById('settings-modal').addEventListener('click', (e) => {
-        if (e.target.id === 'settings-modal') {
+    document.querySelector(".close-modal").addEventListener("click", closeSettings);
+    document.getElementById("settings-modal").addEventListener("click", (e) => {
+        if (e.target.id === "settings-modal") {
             closeSettings();
         }
     });
     
     // Save API keys
-    document.querySelectorAll('.save-key-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+    document.querySelectorAll(".save-key-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
             const provider = e.target.dataset.provider;
             saveApiKey(provider);
         });
     });
     
     // Provider and model changes
-    document.getElementById('provider-select').addEventListener('change', (e) => {
+    document.getElementById("provider-select").addEventListener("change", (e) => {
         state.currentProvider = e.target.value;
         updateStatusBar();
     });
     
-    document.getElementById('model-input').addEventListener('change', (e) => {
+    document.getElementById("model-input").addEventListener("change", (e) => {
         state.currentModel = e.target.value;
     });
     
-    document.getElementById('system-prompt').addEventListener('change', (e) => {
+    document.getElementById("system-prompt").addEventListener("change", (e) => {
         state.systemPrompt = e.target.value;
     });
     
     // IPC listeners
-    ipcRenderer.on('periodic-question', (event, question) => {
+    ipcRenderer.on("periodic-question", (event, question) => {
         handlePeriodicQuestion(question);
     });
     
-    ipcRenderer.on('api-key-saved', (event, data) => {
+    ipcRenderer.on("api-key-saved", (event, data) => {
         showSystemMessage(`API key saved for ${data.provider}`);
     });
     
-    ipcRenderer.on('api-keys-loaded', (event, keys) => {
+    ipcRenderer.on("api-keys-loaded", (event, keys) => {
         state.apiKeys = keys;
-        document.getElementById('openai-key').value = keys.openai || '';
-        document.getElementById('openrouter-key').value = keys.openrouter || '';
-        document.getElementById('anthropic-key').value = keys.anthropic || '';
+        document.getElementById("openai-key").value = keys.openai || "";
+        document.getElementById("openrouter-key").value = keys.openrouter || "";
+        document.getElementById("anthropic-key").value = keys.anthropic || "";
         updateStatusBar();
     });
     
-    ipcRenderer.on('chat-history-loaded', (event, history) => {
+    ipcRenderer.on("chat-history-loaded", (event, history) => {
         state.chatHistory = history;
         renderChatHistory();
     });
     
-    ipcRenderer.on('chat-history-cleared', () => {
+    ipcRenderer.on("chat-history-cleared", () => {
         state.chatHistory = [];
-        document.getElementById('chat-messages').innerHTML = '';
-        showSystemMessage(':: CHAT HISTORY CLEARED ::');
+        document.getElementById("chat-messages").innerHTML = "";
+        showSystemMessage(":: CHAT HISTORY CLEARED ::");
     });
 }
 
@@ -428,36 +609,36 @@ function initEventListeners() {
 // ============================================
 
 function sendMessage() {
-    const input = document.getElementById('chat-input');
+    const input = document.getElementById("chat-input");
     const message = input.value.trim();
     
     if (!message || state.isProcessing) return;
     
     // Add user message
-    addMessage('user', message);
-    input.value = '';
+    addMessage("user", message);
+    input.value = "";
     
     // Process with AI
     processAIResponse(message);
 }
 
 function addMessage(role, content, isSystem = false) {
-    const messagesContainer = document.getElementById('chat-messages');
-    const messageDiv = document.createElement('div');
+    const messagesContainer = document.getElementById("chat-messages");
+    const messageDiv = document.createElement("div");
     
     if (isSystem) {
-        messageDiv.className = 'message system-message';
+        messageDiv.className = "message system-message";
     } else {
         messageDiv.className = `message ${role}-message`;
     }
     
-    const timestamp = document.createElement('span');
-    timestamp.className = 'timestamp';
+    const timestamp = document.createElement("span");
+    timestamp.className = "timestamp";
     const now = new Date();
-    timestamp.textContent = `[${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}]`;
+    timestamp.textContent = `[${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}]`;
     
-    const text = document.createElement('span');
-    text.className = 'message-text';
+    const text = document.createElement("span");
+    text.className = "message-text";
     text.textContent = content;
     
     messageDiv.appendChild(timestamp);
@@ -468,28 +649,28 @@ function addMessage(role, content, isSystem = false) {
     // Save to history if not system message
     if (!isSystem) {
         state.chatHistory.push({ role, content, timestamp: Date.now() });
-        ipcRenderer.send('save-chat-history', state.chatHistory);
+        ipcRenderer.send("save-chat-history", state.chatHistory);
     }
 }
 
 function showSystemMessage(message) {
-    addMessage('system', message, true);
+    addMessage("system", message, true);
 }
 
 async function processAIResponse(userMessage) {
     if (!state.apiKeys[state.currentProvider]) {
-        showSystemMessage('ERROR: No API key set for ' + state.currentProvider);
+        showSystemMessage("ERROR: No API key set for " + state.currentProvider);
         return;
     }
     
     state.isProcessing = true;
-    updateMood('PROCESSING');
+    updateMood("PROCESSING");
     
     // Show loading indicator
-    const loadingDiv = document.createElement('div');
-    loadingDiv.className = 'message ai-message';
-    loadingDiv.innerHTML = '<span class="timestamp">[AI]</span><span class="message-text loading">thinking</span>';
-    document.getElementById('chat-messages').appendChild(loadingDiv);
+    const loadingDiv = document.createElement("div");
+    loadingDiv.className = "message ai-message";
+    loadingDiv.innerHTML = ";
+    document.getElementById("chat-messages").appendChild(loadingDiv);
     
     try {
         const response = await callAI(userMessage);
@@ -498,13 +679,13 @@ async function processAIResponse(userMessage) {
         loadingDiv.remove();
         
         // Add AI response
-        addMessage('ai', response);
-        updateMood('WATCHFUL');
+        addMessage("ai", response);
+        updateMood("WATCHFUL");
         
     } catch (error) {
         loadingDiv.remove();
         showSystemMessage(`ERROR: ${error.message}`);
-        updateMood('ERROR');
+        updateMood("ERROR");
     } finally {
         state.isProcessing = false;
     }
@@ -519,56 +700,56 @@ async function callAI(userMessage) {
     
     // Add system prompt if exists
     if (state.systemPrompt) {
-        messages.push({ role: 'system', content: state.systemPrompt });
+        messages.push({ role: "system", content: state.systemPrompt });
     }
     
     // Add recent chat history (last 10 messages)
-    const recentHistory = state.chatHistory.slice(-10).filter(msg => msg.role !== 'system');
+    const recentHistory = state.chatHistory.slice(-10).filter(msg => msg.role !== "system");
     messages.push(...recentHistory.map(msg => ({ role: msg.role, content: msg.content })));
     
     // Add current message
-    messages.push({ role: 'user', content: userMessage });
+    messages.push({ role: "user", content: userMessage });
     
     // Call appropriate API
     switch (provider) {
-        case 'openai':
+        case "openai":
             return await callOpenAI(apiKey, messages);
-        case 'openrouter':
+        case "openrouter":
             return await callOpenRouter(apiKey, messages);
-        case 'anthropic':
+        case "anthropic":
             return await callAnthropic(apiKey, messages);
         default:
-            throw new Error('Unknown provider');
+            throw new Error("Unknown provider");
     }
 }
 
 function callOpenAI(apiKey, messages) {
     return new Promise((resolve, reject) => {
         const data = JSON.stringify({
-            model: state.currentModel || 'gpt-4',
+            model: state.currentModel || "gpt-4",
             messages: messages,
             temperature: 0.8
         });
         
         const options = {
-            hostname: 'api.openai.com',
-            path: '/v1/chat/completions',
-            method: 'POST',
+            hostname: "api.openai.com",
+            path: "/v1/chat/completions",
+            method: "POST",
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Length': data.length
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Length": data.length
             }
         };
         
         const req = https.request(options, (res) => {
-            let responseData = '';
+            let responseData = "";
             
-            res.on('data', (chunk) => {
+            res.on("data", (chunk) => {
                 responseData += chunk;
             });
             
-            res.on('end', () => {
+            res.on("end", () => {
                 try {
                     const json = JSON.parse(responseData);
                     if (json.error) {
@@ -582,7 +763,7 @@ function callOpenAI(apiKey, messages) {
             });
         });
         
-        req.on('error', reject);
+        req.on("error", reject);
         req.write(data);
         req.end();
     });
@@ -591,31 +772,31 @@ function callOpenAI(apiKey, messages) {
 function callOpenRouter(apiKey, messages) {
     return new Promise((resolve, reject) => {
         const data = JSON.stringify({
-            model: state.currentModel || 'openai/gpt-4',
+            model: state.currentModel || "openai/gpt-4",
             messages: messages
         });
         
         const options = {
-            hostname: 'openrouter.ai',
-            path: '/api/v1/chat/completions',
-            method: 'POST',
+            hostname: "openrouter.ai",
+            path: "/api/v1/chat/completions",
+            method: "POST",
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-                'HTTP-Referer': 'https://github.com/shinigami-companion',
-                'X-Title': 'Shinigami Companion',
-                'Content-Length': data.length
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`,
+                "HTTP-Referer": "https://github.com/shinigami-companion",
+                "X-Title": "Shinigami Companion",
+                "Content-Length": data.length
             }
         };
         
         const req = https.request(options, (res) => {
-            let responseData = '';
+            let responseData = "";
             
-            res.on('data', (chunk) => {
+            res.on("data", (chunk) => {
                 responseData += chunk;
             });
             
-            res.on('end', () => {
+            res.on("end", () => {
                 try {
                     const json = JSON.parse(responseData);
                     if (json.error) {
@@ -629,7 +810,7 @@ function callOpenRouter(apiKey, messages) {
             });
         });
         
-        req.on('error', reject);
+        req.on("error", reject);
         req.write(data);
         req.end();
     });
@@ -638,9 +819,9 @@ function callOpenRouter(apiKey, messages) {
 function callAnthropic(apiKey, messages) {
     return new Promise((resolve, reject) => {
         // Extract system message if present
-        let systemMessage = '';
+        let systemMessage = "";
         const userMessages = messages.filter(msg => {
-            if (msg.role === 'system') {
+            if (msg.role === "system") {
                 systemMessage = msg.content;
                 return false;
             }
@@ -648,32 +829,32 @@ function callAnthropic(apiKey, messages) {
         });
         
         const data = JSON.stringify({
-            model: state.currentModel || 'claude-3-opus-20240229',
+            model: state.currentModel || "claude-3-opus-20240229",
             messages: userMessages,
             system: systemMessage,
             max_tokens: 1024
         });
         
         const options = {
-            hostname: 'api.anthropic.com',
-            path: '/v1/messages',
-            method: 'POST',
+            hostname: "api.anthropic.com",
+            path: "/v1/messages",
+            method: "POST",
             headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01',
-                'Content-Length': data.length
+                "Content-Type": "application/json",
+                "x-api-key": apiKey,
+                "anthropic-version": "2023-06-01",
+                "Content-Length": data.length
             }
         };
         
         const req = https.request(options, (res) => {
-            let responseData = '';
+            let responseData = "";
             
-            res.on('data', (chunk) => {
+            res.on("data", (chunk) => {
                 responseData += chunk;
             });
             
-            res.on('end', () => {
+            res.on("end", () => {
                 try {
                     const json = JSON.parse(responseData);
                     if (json.error) {
@@ -687,7 +868,7 @@ function callAnthropic(apiKey, messages) {
             });
         });
         
-        req.on('error', reject);
+        req.on("error", reject);
         req.write(data);
         req.end();
     });
@@ -699,24 +880,24 @@ function callAnthropic(apiKey, messages) {
 
 function handleQuickAction(action) {
     switch (action) {
-        case 'clear':
-            if (confirm('Clear all chat history?')) {
-                ipcRenderer.send('clear-chat-history');
+        case "clear":
+            if (confirm("Clear all chat history?")) {
+                ipcRenderer.send("clear-chat-history");
             }
             break;
-        case 'export':
+        case "export":
             exportChatHistory();
             break;
-        case 'summon':
+        case "summon":
             triggerSummonAnimation();
             break;
     }
 }
 
 function exportChatHistory() {
-    const fs = require('fs');
-    const path = require('path');
-    const os = require('os');
+    const fs = require("fs");
+    const path = require("path");
+    const os = require("os");
     
     const exportData = {
         exported: new Date().toISOString(),
@@ -748,12 +929,12 @@ function triggerSummonAnimation() {
         }, 50);
     }
     
-    showSystemMessage(':: SHINIGAMI SUMMONED ::');
+    showSystemMessage(":: SHINIGAMI SUMMONED ::");
 }
 
 function handlePeriodicQuestion(question) {
-    addMessage('ai', question);
-    updateMood('CURIOUS');
+    addMessage("ai", question);
+    updateMood("CURIOUS");
     
     // Flash the creature's eyes
     if (state.shinigami && state.shinigami.userData.leftEye && state.shinigami.userData.rightEye) {
@@ -768,17 +949,17 @@ function handlePeriodicQuestion(question) {
             clearInterval(flashInterval);
             state.shinigami.userData.leftEye.material.emissiveIntensity = 2;
             state.shinigami.userData.rightEye.material.emissiveIntensity = 2;
-            updateMood('WATCHFUL');
+            updateMood("WATCHFUL");
         }, 2000);
     }
 }
 
 function openSettings() {
-    document.getElementById('settings-modal').classList.add('active');
+    document.getElementById("settings-modal").classList.add("active");
 }
 
 function closeSettings() {
-    document.getElementById('settings-modal').classList.remove('active');
+    document.getElementById("settings-modal").classList.remove("active");
 }
 
 function saveApiKey(provider) {
@@ -791,27 +972,27 @@ function saveApiKey(provider) {
     }
     
     state.apiKeys[provider] = key;
-    ipcRenderer.send('save-api-key', { provider, key });
+    ipcRenderer.send("save-api-key", { provider, key });
 }
 
 function loadSettings() {
-    ipcRenderer.send('get-api-keys');
+    ipcRenderer.send("get-api-keys");
     
     // Load defaults
-    const systemPrompt = document.getElementById('system-prompt');
+    const systemPrompt = document.getElementById("system-prompt");
     state.systemPrompt = systemPrompt.value;
     
-    const modelInput = document.getElementById('model-input');
+    const modelInput = document.getElementById("model-input");
     modelInput.value = state.currentModel;
 }
 
 function loadChatHistory() {
-    ipcRenderer.send('load-chat-history');
+    ipcRenderer.send("load-chat-history");
 }
 
 function renderChatHistory() {
-    const messagesContainer = document.getElementById('chat-messages');
-    messagesContainer.innerHTML = '';
+    const messagesContainer = document.getElementById("chat-messages");
+    messagesContainer.innerHTML = "";
     
     state.chatHistory.forEach(msg => {
         addMessage(msg.role, msg.content);
@@ -819,22 +1000,22 @@ function renderChatHistory() {
 }
 
 function updateStatusBar() {
-    const connectionStatus = document.getElementById('connection-status');
-    const apiProvider = document.getElementById('api-provider');
+    const connectionStatus = document.getElementById("connection-status");
+    const apiProvider = document.getElementById("api-provider");
     
     if (state.apiKeys[state.currentProvider]) {
-        connectionStatus.textContent = 'READY';
-        connectionStatus.classList.add('online');
+        connectionStatus.textContent = "READY";
+        connectionStatus.classList.add("online");
     } else {
-        connectionStatus.textContent = 'NO API KEY';
-        connectionStatus.classList.remove('online');
+        connectionStatus.textContent = "NO API KEY";
+        connectionStatus.classList.remove("online");
     }
     
     apiProvider.textContent = state.currentProvider.toUpperCase();
 }
 
 function updateMood(mood) {
-    const moodIndicator = document.getElementById('mood-indicator');
+    const moodIndicator = document.getElementById("mood-indicator");
     moodIndicator.textContent = mood;
 }
 
@@ -845,7 +1026,7 @@ function startUptime() {
         const minutes = Math.floor((elapsed % 3600000) / 60000);
         const seconds = Math.floor((elapsed % 60000) / 1000);
         
-        const uptimeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        document.getElementById('uptime').textContent = uptimeStr;
+        const uptimeStr = `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+        document.getElementById("uptime").textContent = uptimeStr;
     }, 1000);
 }

@@ -27,7 +27,8 @@ function createWindow() {
     });
 
     mainWindow.loadFile('index.html');
-    mainWindow.setAlwaysOnBottom(true); // Keep it below all windows but above desktop
+    // Try to set always on bottom, fallback to always on top if not available
+    mainWindow.setAlwaysOnTop(true, 'normal'); // Keep it below all windows but above desktop
 
     // Make window stick to desktop on KDE Plasma
     if (process.platform === 'linux') {

@@ -1,0 +1,40 @@
+[Unit]
+Description=Shinigami Companion Desktop Widget
+After=graphical.target
+
+[Service]
+Type=simple
+Environment="DISPLAY=:0"
+Environment="XAUTHORITY=/home/%u/.Xauthority"
+WorkingDirectory=/home/%u/apps/shinigami-companion
+ExecStart=/usr/bin/npm start
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+
+# INSTALLATION INSTRUCTIONS:
+# 
+# 1. Copy this file to systemd user directory:
+#    cp shinigami-companion.service ~/.config/systemd/user/
+#
+# 2. Update WorkingDirectory path if needed (line 8)
+#
+# 3. Enable the service:
+#    systemctl --user enable shinigami-companion.service
+#
+# 4. Start the service:
+#    systemctl --user start shinigami-companion.service
+#
+# 5. Check status:
+#    systemctl --user status shinigami-companion.service
+#
+# 6. View logs:
+#    journalctl --user -u shinigami-companion.service -f
+#
+# 7. To disable:
+#    systemctl --user disable shinigami-companion.service
+#
+# NOTE: This is an alternative to desktop autostart.
+#       Choose either systemd service OR autostart, not both.

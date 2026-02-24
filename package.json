@@ -1,0 +1,48 @@
+{
+  "name": "shinigami-companion",
+  "version": "1.0.0",
+  "description": "A desktop companion widget with AI chat capabilities featuring an animated shinigami entity",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "install-deps": "npm install",
+    "setup": "npm install && npm run setup-desktop-entry",
+    "setup-desktop-entry": "node setup-desktop.js"
+  },
+  "keywords": [
+    "electron",
+    "desktop-widget",
+    "ai",
+    "chat",
+    "companion",
+    "three.js"
+  ],
+  "author": "Splicer",
+  "license": "MIT",
+  "dependencies": {
+    "electron": "^26.0.0",
+    "electron-store": "^8.1.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.6.4"
+  },
+  "build": {
+    "appId": "com.splicer.shinigami-companion",
+    "productName": "Shinigami Companion",
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility"
+    },
+    "files": [
+      "main.js",
+      "renderer.js",
+      "index.html",
+      "style.css",
+      "package.json"
+    ]
+  }
+}

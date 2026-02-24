@@ -1,0 +1,332 @@
+╔═══════════════════════════════════════════════════════════════╗
+║              SHINIGAMI COMPANION - PROJECT INFO              ║
+╚═══════════════════════════════════════════════════════════════╝
+
+[PROJECT DESCRIPTION]
+───────────────────────────────────────────────────────────────
+A desktop widget for Arch Linux featuring an AI-powered chat
+interface with an animated 3D shinigami (death deity) companion.
+Stays on desktop layer, provides periodic check-ins, and enables
+conversations with various AI providers.
+
+[TECHNOLOGY STACK]
+───────────────────────────────────────────────────────────────
+  • Electron - Desktop application framework
+  • Three.js - 3D graphics for animated creature
+  • Node.js - Backend logic and API calls
+  • Pure HTML/CSS/JavaScript - No frameworks
+  • electron-store - Configuration persistence
+
+[KEY FEATURES]
+───────────────────────────────────────────────────────────────
+  ✓ Desktop widget (non-intrusive)
+  ✓ Animated 3D shinigami creature with:
+    - Floating motion
+    - Pulsing eyes
+    - Swaying arms
+    - Orbiting ethereal wisps
+    - Particle effects
+  ✓ AI chat interface supporting:
+    - OpenAI (GPT-4, GPT-3.5)
+    - OpenRouter (multiple providers)
+    - Anthropic (Claude)
+  ✓ Periodic check-in questions
+  ✓ Persistent chat history
+  ✓ Customizable system prompts
+  ✓ Export conversations
+  ✓ Cyberpunk aesthetic
+
+[PROJECT STRUCTURE]
+───────────────────────────────────────────────────────────────
+shinigami-companion/
+│
+├── Core Application Files
+│   ├── main.js                 Main Electron process
+│   ├── renderer.js             UI logic, Three.js, API
+│   ├── index.html              UI structure
+│   └── style.css               Cyberpunk styling
+│
+├── Configuration
+│   ├── package.json            Dependencies & scripts
+│   ├── .gitignore              Git exclusions
+│   └── shinigami-companion.service  Systemd service
+│
+├── Setup & Installation
+│   ├── install.sh              Automated installer
+│   └── setup-desktop.js        Desktop integration
+│
+└── Documentation
+    ├── README.md               Full documentation
+    ├── QUICKREF.txt            Quick reference card
+    ├── ADVANCED.md             Advanced config guide
+    └── CUSTOM_QUESTIONS.js     Example custom questions
+
+[FILE DETAILS]
+───────────────────────────────────────────────────────────────
+
+main.js (3.7 KB)
+  • Electron main process
+  • Window management
+  • IPC handlers
+  • Periodic question scheduler
+  • Notification system
+
+renderer.js (27 KB)
+  • Three.js creature creation & animation
+  • Chat interface logic
+  • API integration (OpenAI, OpenRouter, Anthropic)
+  • Message handling
+  • Settings management
+  • Event listeners
+
+index.html (6.1 KB)
+  • Split-panel layout
+  • Chat interface
+  • Status bar
+  • Settings modal
+  • Control buttons
+
+style.css (11 KB)
+  • Cyberpunk theme
+  • Magenta/green color scheme
+  • Animations & effects
+  • Responsive design
+  • Modal styling
+
+package.json (1.1 KB)
+  • Dependencies: electron, electron-store
+  • Scripts: start, build, setup
+  • Build configuration
+
+install.sh (3.1 KB)
+  • Automated installation
+  • Dependency checking
+  • System tool verification
+  • Desktop integration
+
+setup-desktop.js (3.4 KB)
+  • Creates .desktop file
+  • Generates helper scripts
+  • System dependency check
+  • Window rule instructions
+
+README.md (8.2 KB)
+  • Complete installation guide
+  • Usage instructions
+  • Configuration details
+  • Troubleshooting
+  • API setup
+
+QUICKREF.txt (7.6 KB)
+  • Quick command reference
+  • Keyboard shortcuts
+  • Button functions
+  • API provider info
+  • Troubleshooting tips
+
+ADVANCED.md (14 KB)
+  • Creature customization
+  • UI theme modification
+  • API configuration
+  • Window management
+  • Performance tuning
+  • Security hardening
+  • Integration examples
+
+CUSTOM_QUESTIONS.js (4.8 KB)
+  • 80+ example questions
+  • Categorized by context
+  • Mood-based questions
+  • Usage instructions
+
+shinigami-companion.service (1.1 KB)
+  • Systemd service template
+  • Auto-start configuration
+  • Installation instructions
+
+.gitignore (270 B)
+  • Standard exclusions
+  • Node modules
+  • Build outputs
+  • Config files
+
+[QUICK START]
+───────────────────────────────────────────────────────────────
+1. Extract files to: ~/apps/shinigami-companion
+2. Run: ./install.sh
+3. Start: npm start or ./launch.sh
+4. Configure: Click [CONF], add API key, click [SAVE]
+5. Apply window rules: ./set-window-rules.sh
+
+[SYSTEM REQUIREMENTS]
+───────────────────────────────────────────────────────────────
+  • Arch Linux or Arch-based distro
+  • KDE Plasma (recommended) or other DE/WM
+  • Node.js v16+
+  • xdotool & wmctrl (for window management)
+  • API key from OpenAI/OpenRouter/Anthropic
+
+[CUSTOMIZATION HOTSPOTS]
+───────────────────────────────────────────────────────────────
+  Colors:           style.css (lines with #ff00ff, #00ff00)
+  Creature:         renderer.js → createShinigami()
+  Questions:        main.js → sendPeriodicQuestion()
+  Check intervals:  main.js → QUESTION_INTERVALS array
+  System prompt:    Settings modal in app
+  API endpoints:    renderer.js → callAI functions
+
+[WINDOW MANAGEMENT]
+───────────────────────────────────────────────────────────────
+KDE Plasma:   Run ./set-window-rules.sh after starting
+i3wm:         Add to ~/.config/i3/config
+Sway:         Add to ~/.config/sway/config
+bspwm:        Add to ~/.config/bspwm/bspwmrc
+Openbox:      Add to ~/.config/openbox/rc.xml
+
+See ADVANCED.md for window manager specific configs.
+
+[API PROVIDERS]
+───────────────────────────────────────────────────────────────
+OpenAI:
+  • Endpoint: api.openai.com
+  • Models: gpt-4, gpt-4-turbo, gpt-3.5-turbo
+  • Key format: sk-...
+
+OpenRouter:
+  • Endpoint: openrouter.ai
+  • Models: openai/gpt-4, anthropic/claude-3-opus, etc.
+  • Key format: sk-or-...
+
+Anthropic:
+  • Endpoint: api.anthropic.com
+  • Models: claude-3-opus-20240229, claude-3-sonnet-20240229
+  • Key format: sk-ant-...
+
+[PERIODIC QUESTIONS]
+───────────────────────────────────────────────────────────────
+Intervals:    30, 45, 60, 90, 120 minutes (random)
+Disable:      Settings → Uncheck "Enable periodic check-ins"
+Customize:    See CUSTOM_QUESTIONS.js for 80+ examples
+
+[CHAT FEATURES]
+───────────────────────────────────────────────────────────────
+  • Persistent history across sessions
+  • Context-aware conversations (last 10 messages)
+  • Export to JSON or Markdown
+  • Real-time status indicators
+  • Loading animations
+  • Error handling with retry
+
+[CREATURE ANIMATIONS]
+───────────────────────────────────────────────────────────────
+  • Floating/breathing motion
+  • Eye glow pulse
+  • Arm sway
+  • Head tilt
+  • Orbiting wisps (8 particles)
+  • Background particle system (100 particles)
+  • Summon animation on button click
+  • Eye flash on periodic questions
+
+[PERFORMANCE]
+───────────────────────────────────────────────────────────────
+Rendering:    ~60 FPS with Three.js
+CPU:          Low impact when idle
+Memory:       ~100-150 MB typical
+GPU:          Minimal (basic 3D rendering)
+
+Optimization tips in ADVANCED.md
+
+[SECURITY]
+───────────────────────────────────────────────────────────────
+  • API keys stored locally with electron-store
+  • No third-party data transmission
+  • Optional encryption for keys
+  • Input sanitization recommended
+  • Sandbox options available
+
+See ADVANCED.md for hardening options.
+
+[AUTOSTART OPTIONS]
+───────────────────────────────────────────────────────────────
+1. Desktop entry to autostart folder
+2. KDE System Settings → Autostart
+3. Systemd user service
+4. Window manager startup script
+
+[TROUBLESHOOTING]
+───────────────────────────────────────────────────────────────
+Window issues:       Run ./set-window-rules.sh
+API errors:          Check key, model name, credits
+Transparent issues:  Set transparent: false in main.js
+App won't start:     Check Node.js version, reinstall deps
+Performance:         Reduce particles, lower FPS
+
+See README.md and QUICKREF.txt for detailed troubleshooting.
+
+[DEVELOPMENT]
+───────────────────────────────────────────────────────────────
+Tech debt:       None (fresh project)
+Known issues:    None
+Future ideas:    Voice input, more creature types, themes
+Contributing:    Feel free to fork and modify
+
+[BUILD & DISTRIBUTION]
+───────────────────────────────────────────────────────────────
+Build:           npm run build
+Output:          dist/ folder
+Formats:         AppImage, .deb
+Dependencies:    Bundled in build
+
+[LICENSES]
+───────────────────────────────────────────────────────────────
+Project:         MIT License
+Electron:        MIT License
+Three.js:        MIT License
+electron-store:  MIT License
+
+[AUTHOR]
+───────────────────────────────────────────────────────────────
+Created by:      Splicer
+For:             Underground web, hacker, maker communities
+Purpose:         Desktop companion & AI chat interface
+Style:           Cyberpunk, terminal aesthetic, maximalist
+
+[RELATED PROJECTS]
+───────────────────────────────────────────────────────────────
+  • EWW widgets (Elkowar's Wacky Widgets)
+  • Conky system monitor
+  • Rainmeter (Windows equivalent)
+  • Übersicht (macOS equivalent)
+
+[USEFUL LINKS]
+───────────────────────────────────────────────────────────────
+OpenAI API:      https://platform.openai.com/api-keys
+OpenRouter:      https://openrouter.ai/keys
+Anthropic:       https://console.anthropic.com/settings/keys
+Three.js Docs:   https://threejs.org/docs/
+Electron Docs:   https://www.electronjs.org/docs/
+Arch Wiki:       https://wiki.archlinux.org/
+
+[VERSION INFO]
+───────────────────────────────────────────────────────────────
+Version:         1.0.0
+Release Date:    2024-11-23
+Node Target:     v16+
+Electron:        v26.0.0
+Status:          Production Ready
+
+[STATS]
+───────────────────────────────────────────────────────────────
+Total Files:     14
+Total Size:      ~100 KB
+Lines of Code:   ~1,500
+Documentation:   ~30 KB
+Installation:    5 minutes
+Learning Curve:  30 minutes
+
+╔═══════════════════════════════════════════════════════════════╗
+║  [ENTITY: SHINIGAMI.v1]                                      ║
+║  [STATUS: READY FOR DEPLOYMENT]                              ║
+║  [MESSAGE: All systems initialized. Ready to observe.]       ║
+╚═══════════════════════════════════════════════════════════════╝

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shinigami Companion</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Drag Handle for Moving Window -->
+    <div id="drag-handle">
+        <span class="handle-text">.:[ SHINIGAMI COMPANION ]:.</span>
+        <div class="window-controls">
+            <button class="ctrl-btn" id="settings-btn" title="Settings">[CONF]</button>
+            <button class="ctrl-btn" id="minimize-btn" title="Minimize">[-]</button>
+            <button class="ctrl-btn" id="close-btn" title="Close">[X]</button>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div id="main-container">
+        <!-- Left Side: Chat Interface -->
+        <div id="chat-panel">
+            <!-- Status Bar -->
+            <div id="status-bar">
+                <div class="status-item">
+                    <span class="status-label">[STATUS]</span>
+                    <span id="connection-status">OFFLINE</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">[API]</span>
+                    <span id="api-provider">NONE</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">[MOOD]</span>
+                    <span id="mood-indicator">WATCHFUL</span>
+                </div>
+            </div>
+
+            <!-- Chat Messages Container -->
+            <div id="chat-messages">
+                <div class="system-message">
+                    <span class="timestamp">[SYSTEM]</span>
+                    <span class="message-text">:: SHINIGAMI INTERFACE INITIALIZED ::</span>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div id="chat-input-area">
+                <div class="input-wrapper">
+                    <span class="input-prefix">&gt;&gt;</span>
+                    <input type="text" id="chat-input" placeholder="speak your mind..." autocomplete="off">
+                    <button id="send-btn">[SEND]</button>
+                </div>
+                <div class="quick-actions">
+                    <button class="action-btn" data-action="clear">[CLEAR]</button>
+                    <button class="action-btn" data-action="export">[EXPORT]</button>
+                    <button class="action-btn" data-action="summon">[SUMMON]</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Shinigami Creature -->
+        <div id="creature-panel">
+            <canvas id="creature-canvas"></canvas>
+            <div id="creature-overlay">
+                <div class="creature-stats">
+                    <div class="stat-line">[ENTITY: SHINIGAMI.v1]</div>
+                    <div class="stat-line">[TYPE: OBSERVER]</div>
+                    <div class="stat-line">[ACTIVE: <span id="uptime">00:00:00</span>]</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>.:[ CONFIGURATION ]:.</h2>
+                <button class="close-modal">[X]</button>
+            </div>
+            <div class="modal-body">
+                <div class="config-section">
+                    <h3>[API KEYS]</h3>
+                    
+                    <div class="config-item">
+                        <label for="openai-key">OpenAI API Key:</label>
+                        <input type="password" id="openai-key" placeholder="sk-...">
+                        <button class="save-key-btn" data-provider="openai">[SAVE]</button>
+                    </div>
+
+                    <div class="config-item">
+                        <label for="openrouter-key">OpenRouter API Key:</label>
+                        <input type="password" id="openrouter-key" placeholder="sk-or-...">
+                        <button class="save-key-btn" data-provider="openrouter">[SAVE]</button>
+                    </div>
+
+                    <div class="config-item">
+                        <label for="anthropic-key">Anthropic API Key:</label>
+                        <input type="password" id="anthropic-key" placeholder="sk-ant-...">
+                        <button class="save-key-btn" data-provider="anthropic">[SAVE]</button>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h3>[API PROVIDER]</h3>
+                    <select id="provider-select">
+                        <option value="openai">OpenAI</option>
+                        <option value="openrouter">OpenRouter</option>
+                        <option value="anthropic">Anthropic</option>
+                    </select>
+                </div>
+
+                <div class="config-section">
+                    <h3>[MODEL SELECTION]</h3>
+                    <input type="text" id="model-input" placeholder="gpt-4, claude-3-opus, etc.">
+                </div>
+
+                <div class="config-section">
+                    <h3>[SYSTEM PROMPT]</h3>
+                    <textarea id="system-prompt" rows="4" placeholder="You are a shinigami companion...">You are a shinigami - a death deity and observer of mortals. You speak in a direct, slightly cryptic manner. You're curious about human endeavors, fascinated by their creative pursuits and technical work. You occasionally make dark humor jokes but are ultimately supportive. You check in on the human you're bound to, offering insights and asking probing questions.</textarea>
+                </div>
+
+                <div class="config-section">
+                    <h3>[NOTIFICATION SETTINGS]</h3>
+                    <label>
+                        <input type="checkbox" id="enable-notifications" checked>
+                        Enable periodic check-ins
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="renderer.js"></script>
+</body>
+</html>

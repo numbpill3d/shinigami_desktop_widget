@@ -1,0 +1,149 @@
+╔═══════════════════════════════════════════════════════════════╗
+║          SHINIGAMI COMPANION - QUICK REFERENCE               ║
+╚═══════════════════════════════════════════════════════════════╝
+
+[INSTALLATION]
+───────────────────────────────────────────────────────────────
+  Run:  ./install.sh
+  Or:   npm install && npm run setup
+
+[FIRST RUN]
+───────────────────────────────────────────────────────────────
+  1. Start:     npm start  or  ./launch.sh
+  2. Click:     [CONF] button (top right)
+  3. Add:       API key for OpenAI/OpenRouter/Anthropic
+  4. Save:      Click [SAVE] for your key
+  5. Select:    Choose provider from dropdown
+  6. Set Model: e.g., gpt-4, claude-3-opus-20240229
+
+[KEYBOARD SHORTCUTS]
+───────────────────────────────────────────────────────────────
+  Enter         Send message
+  ESC           Close settings (when open)
+
+[BUTTONS]
+───────────────────────────────────────────────────────────────
+  [CONF]        Open configuration settings
+  [-]           Minimize window
+  [X]           Close application
+  [SEND]        Send chat message
+  [CLEAR]       Clear all chat history
+  [EXPORT]      Export chat to JSON file
+  [SUMMON]      Trigger creature animation
+
+[STATUS BAR INDICATORS]
+───────────────────────────────────────────────────────────────
+  [STATUS]      READY / NO API KEY
+  [API]         Current provider (OPENAI/OPENROUTER/ANTHROPIC)
+  [MOOD]        Companion state (WATCHFUL/PROCESSING/CURIOUS)
+  [ACTIVE]      Uptime counter
+
+[WINDOW MANAGEMENT (KDE PLASMA)]
+───────────────────────────────────────────────────────────────
+  After starting app, run:
+  ./set-window-rules.sh
+
+  Or manually set:
+  Right-click title bar → More Actions → Special Window Settings
+  - Window type: Desktop
+  - Keep below: Yes
+  - Skip taskbar: Yes
+
+[API PROVIDERS & MODELS]
+───────────────────────────────────────────────────────────────
+  OpenAI:
+    - gpt-4
+    - gpt-4-turbo-preview
+    - gpt-3.5-turbo
+
+  OpenRouter:
+    - openai/gpt-4
+    - anthropic/claude-3-opus
+    - google/gemini-pro
+    (many more available)
+
+  Anthropic:
+    - claude-3-opus-20240229
+    - claude-3-sonnet-20240229
+    - claude-3-haiku-20240307
+
+[GET API KEYS]
+───────────────────────────────────────────────────────────────
+  OpenAI:     https://platform.openai.com/api-keys
+  OpenRouter: https://openrouter.ai/keys
+  Anthropic:  https://console.anthropic.com/settings/keys
+
+[AUTOSTART]
+───────────────────────────────────────────────────────────────
+  Copy desktop file to autostart:
+  cp ~/.local/share/applications/shinigami-companion.desktop \
+     ~/.config/autostart/
+
+[FILES & LOCATIONS]
+───────────────────────────────────────────────────────────────
+  Config:       ~/.config/shinigami-companion/config.json
+  Chat Export:  ~/shinigami-chat-[timestamp].json
+  Desktop File: ~/.local/share/applications/
+  Logs:         Check terminal output when running
+
+[CUSTOMIZATION]
+───────────────────────────────────────────────────────────────
+  Colors:       Edit style.css
+  Creature:     Edit renderer.js → createShinigami()
+  Questions:    Edit main.js → sendPeriodicQuestion()
+  Check-ins:    Edit main.js → QUESTION_INTERVALS array
+
+[TROUBLESHOOTING]
+───────────────────────────────────────────────────────────────
+  Window won't stay on desktop:
+    → Run ./set-window-rules.sh
+
+  API errors:
+    → Check API key in settings
+    → Verify model name is correct
+    → Check API credits/balance
+
+  Transparent background issues:
+    → Edit main.js: transparent: false
+
+  App won't start:
+    → Check Node.js version: node --version
+    → Reinstall dependencies: npm install
+
+[PERIODIC CHECK-INS]
+───────────────────────────────────────────────────────────────
+  Frequency:    Random interval between 30-120 minutes
+  Disable:      Uncheck "Enable periodic check-ins" in settings
+  Examples:
+    - "What are you working on right now?"
+    - "How's your energy level?"
+    - "Discovered anything cool lately?"
+
+[CHAT HISTORY]
+───────────────────────────────────────────────────────────────
+  Saved:        Automatically after each message
+  Cleared:      Click [CLEAR] button (requires confirmation)
+  Exported:     Click [EXPORT] → saved to home directory
+  Format:       JSON with timestamps
+
+[SYSTEM PROMPT]
+───────────────────────────────────────────────────────────────
+  Default:      Shinigami observer with dark humor
+  Customize:    Settings → [SYSTEM PROMPT] section
+  Tips:
+    - Define personality traits
+    - Set tone (formal/casual/cryptic)
+    - Add specific knowledge domains
+    - Include conversation style preferences
+
+[SUPPORT]
+───────────────────────────────────────────────────────────────
+  README:       Full documentation in README.md
+  Issues:       Check terminal output for error messages
+  Community:    Share on GitHub / underground web forums
+
+╔═══════════════════════════════════════════════════════════════╗
+║  [ENTITY: SHINIGAMI.v1]                                      ║
+║  [STATUS: OBSERVING]                                         ║
+║  [MESSAGE: May your code compile and demons stay debugged]   ║
+╚═══════════════════════════════════════════════════════════════╝
